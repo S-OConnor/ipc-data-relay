@@ -1,0 +1,108 @@
+# GitLab CI pipeline for ipc-data-relay.
+#
+# Runs locally with gitlab-ci-local (https://github.com/firecow/gitlab-ci-local):
+#   gitlab-ci-local                 # whole pipeline
+#   gitlab-ci-local build           # one job
+#   gitlab-ci-local --list          # show jobs
+# The integration tests use UDP multicast on the container's loopback
+# interface, so no special network configuration is needed.
+
+stages:
+  - build
+  - test
+  - lint
+  - package
+
+variables:
+  GIT_DEPTH: "1"
+  DEBIAN_FRONTEND: noninteractive
+  CMAKE_BUILD_TYPE: Release
+
+default:
+  image: debian:bookworm
+  interruptible: true
+
+.build-deps:
+  before_script:
+    - apt-get update -qq
+    - apt-get install -y -qq --no-install-recommends
+        build-essential cmake pkg-config libzmq3-dev python3 ca-certificates > /dev/null
+    - cmake --version | head -1
+
+build:
+  stage: build
+  extends: .build-deps
+  script:
+    - cmake -S . -B build-ci -DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE -DIPCRELAY_WARNINGS_AS_ERRORS=ON
+    - cmake --build build-ci -j"$(nproc)"
+    - ./build-ci/ipc-relay-bridge --version
+    - ./build-ci/ipc-relay-receiver --version
+  artifacts:
+    paths:
+      - build-ci/
+    expire_in: 1 day
+
+unit-tests:
+  stage: test
+  extends: .build-deps
+  needs: [build]
+  script:
+    - ctest --test-dir build-ci -R 'unit_tests|capture_inspect_selftest' --output-on-failure --output-junit unit.xml
+  artifacts:
+    when: always
+    reports:
+      junit: build-ci/unit.xml
+
+integration-tests:
+  stage: test
+  extends: .build-deps
+  needs: [build]
+  script:
+    - ctest --test-dir build-ci -E 'unit_tests|capture_inspect_selftest' --output-on-failure --output-junit integration.xml
+  artifacts:
+    when: always
+    reports:
+      junit: build-ci/integration.xml
+
+config-examples:
+  stage: test
+  extends: .build-deps
+  needs: [build]
+  script:
+    # Example configurations must validate (interface names are overridden
+    # because the CI container has no eth0).
+    - ./build-ci/ipc-relay-bridge --config examples/bridge.conf --set multicast_interface=127.0.0.1 --check
+    - ./build-ci/ipc-relay-bridge --config examples/bridge-three-publishers.conf --check
+    - ./build-ci/ipc-relay-receiver --config examples/receiver.conf --set multicast_interface=127.0.0.1 --check
+
+static-analysis:
+  stage: lint
+  needs: []
+  before_script:
+    - apt-get update -qq
+    - apt-get install -y -qq --no-install-recommends cppcheck shellcheck python3 libzmq3-dev > /dev/null
+  script:
+    - cppcheck --std=c++17 --language=c++ --enable=warning,performance,portability
+        --error-exitcode=1 --inline-suppr --quiet
+        --suppress=missingIncludeSystem -I include -I src src include tests/unit tests/helpers
+    - shellcheck -x tests/integration/*.sh
+    - python3 -m py_compile tools/capture_inspect.py tests/integration/test_receiver_faults.py
+
+package:
+  stage: package
+  extends: .build-deps
+  needs: [build, unit-tests, integration-tests]
+  script:
+    - cmake --install build-ci --prefix "dist/ipc-data-relay"
+    - cp -r docs examples packaging README.md dist/ipc-data-relay/
+    - tar -C dist -czf ipc-data-relay.tar.gz ipc-data-relay
+    - tar -tzf ipc-data-relay.tar.gz | wc -l
+  artifacts:
+    paths:
+      - ipc-data-relay.tar.gz
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - when: manual
+      allow_failure: true

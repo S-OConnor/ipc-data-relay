@@ -1,0 +1,25 @@
+[Unit]
+Description=UDP multicast receiver and binary capture for ipc-relay-bridge
+Documentation=file:///usr/share/doc/ipc-data-relay/capture_format.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/ipc-relay-receiver --config /etc/ipc-data-relay/receiver.conf
+Restart=on-failure
+RestartSec=2
+KillSignal=SIGTERM
+TimeoutStopSec=15
+User=ipcrelay
+Group=ipcrelay
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadOnlyPaths=/etc/ipc-data-relay
+# capture_file in receiver.conf should point inside this directory
+StateDirectory=ipc-data-relay
+LogsDirectory=ipc-relay
+
+[Install]
+WantedBy=multi-user.target

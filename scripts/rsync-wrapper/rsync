@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Workaround for the rsync 3.5.0 regression (RsyncProject/rsync#1083) where
+# /dev/fd/N paths produced by bash process substitution are refused. Any
+# --exclude-from/--include-from/--files-from that points at /dev/fd is copied
+# into a temporary file before the real rsync is invoked.
+REAL_RSYNC="${REAL_RSYNC:-/usr/bin/rsync}"
+args=()
+tmpfiles=()
+for a in "$@"; do
+    case "$a" in
+        --exclude-from=/dev/fd/*|--include-from=/dev/fd/*|--files-from=/dev/fd/*)
+            opt="${a%%=*}"
+            path="${a#*=}"
+            t="$(mktemp)"
+            cat "$path" > "$t"
+            tmpfiles+=("$t")
+            args+=("$opt=$t")
+            ;;
+        *) args+=("$a") ;;
+    esac
+done
+"$REAL_RSYNC" "${args[@]}"
+rc=$?
+[ "${#tmpfiles[@]}" -gt 0 ] && rm -f "${tmpfiles[@]}"
+exit $rc

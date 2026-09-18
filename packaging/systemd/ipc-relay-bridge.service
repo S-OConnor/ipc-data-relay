@@ -1,0 +1,27 @@
+[Unit]
+Description=ZeroMQ IPC to UDP multicast bridge
+Documentation=file:///usr/share/doc/ipc-data-relay/architecture.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/ipc-relay-bridge --config /etc/ipc-data-relay/bridge.conf
+Restart=on-failure
+RestartSec=2
+KillSignal=SIGTERM
+TimeoutStopSec=10
+User=ipcrelay
+Group=ipcrelay
+# The service needs read access to the publishers' IPC sockets; add their
+# group here if they are not world-readable.
+#SupplementaryGroups=app
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=no
+ReadOnlyPaths=/etc/ipc-data-relay
+RuntimeDirectory=ipc-data-relay
+
+[Install]
+WantedBy=multi-user.target

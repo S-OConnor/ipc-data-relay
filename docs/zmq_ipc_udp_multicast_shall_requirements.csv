@@ -1,0 +1,100 @@
+Requirement ID,Section,SHALL Requirement,Priority
+BRG-001,General,The software shall be implemented in C++.,High
+BRG-002,General,The software shall target Linux and shall be suitable for later integration into a Yocto-based embedded Linux image.,High
+BRG-003,General,The software shall consist of a ZeroMQ IPC-to-UDP-multicast bridge and a companion UDP-multicast receiver/capture application.,High
+BRG-004,General,The software shall provide a CMake-based build system.,High
+BRG-005,General,The software shall minimize external dependencies beyond the standard Linux/POSIX interfaces and ZeroMQ/libzmq.,Medium
+BRG-010,ZMQ Input,The bridge shall passively subscribe to N configurable ZeroMQ IPC publishers.,High
+BRG-011,ZMQ Input,"Each configured ZeroMQ input shall use the PUB/SUB messaging pattern, with the bridge acting as a SUB client.",High
+BRG-012,ZMQ Input,The bridge shall not interfere with or consume messages intended for other subscribers connected to the same ZeroMQ PUB endpoints.,High
+BRG-013,ZMQ Input,The bridge shall support multiple simultaneous ZeroMQ IPC endpoints within a single process.,High
+BRG-014,ZMQ Input,The bridge shall use one ZeroMQ SUB socket per configured source.,High
+BRG-015,ZMQ Input,The bridge shall use zmq_poll or an equivalent ZeroMQ polling mechanism to monitor all configured input sockets.,High
+BRG-016,ZMQ Input,The bridge shall not require one thread per ZeroMQ input source.,Medium
+BRG-017,ZMQ Input,The bridge shall avoid blocking indefinitely while servicing any individual ZeroMQ source.,High
+BRG-018,ZMQ Input,The bridge shall implement fairness between active ZeroMQ sources so that a high-rate source cannot indefinitely starve other sources.,High
+BRG-019,ZMQ Input,Each configured ZeroMQ source shall have a unique source identifier included in transmitted data.,High
+BRG-020,ZMQ Input,"The bridge shall support configurable ZeroMQ subscription filters, including an option to subscribe to all messages.",Medium
+BRG-030,UDP Multicast,The bridge shall republish received ZeroMQ messages over a single configurable UDP multicast stream.,High
+BRG-031,UDP Multicast,The UDP multicast group address and destination port shall be configurable.,High
+BRG-032,UDP Multicast,The outbound multicast network interface shall be configurable.,High
+BRG-033,UDP Multicast,The multicast TTL shall be configurable.,Medium
+BRG-034,UDP Multicast,The bridge shall use raw UDP datagrams and shall not require ZeroMQ on the receiving side.,High
+BRG-035,UDP Multicast,The bridge shall preserve the original ZeroMQ message payload without application-level modification.,High
+BRG-036,UDP Multicast,The bridge shall prepend a compact binary transport header to each UDP datagram.,High
+BRG-040,Wire Protocol,The UDP wire protocol shall use fixed-width integer types with explicitly documented field sizes.,High
+BRG-041,Wire Protocol,The UDP wire protocol shall be little-endian only.,High
+BRG-042,Wire Protocol,The software shall not perform network-byte-order conversion for fields defined by the application wire protocol.,High
+BRG-043,Wire Protocol,The wire protocol shall include a magic value that permits receivers to identify valid bridge packets.,High
+BRG-044,Wire Protocol,The wire protocol shall include a protocol version field.,High
+BRG-045,Wire Protocol,The wire protocol shall include the source identifier.,High
+BRG-046,Wire Protocol,The wire protocol shall include a per-source sequence number.,High
+BRG-047,Wire Protocol,The sequence number shall increment for each complete ZeroMQ message received from its corresponding source.,High
+BRG-048,Wire Protocol,The wire protocol shall include a timestamp associated with the received ZeroMQ message.,High
+BRG-049,Wire Protocol,The timestamp representation shall support nanosecond resolution.,Medium
+BRG-050,Wire Protocol,The wire protocol shall include the original message payload length.,High
+BRG-051,Wire Protocol,The wire protocol shall contain sufficient fragmentation metadata to associate multiple UDP datagrams with one original ZeroMQ message.,High
+BRG-052,Wire Protocol,The wire protocol shall include a fragment index and total fragment count when a message requires fragmentation.,High
+BRG-053,Wire Protocol,The wire format shall be serialized explicitly and shall not transmit compiler-dependent raw C structures directly.,High
+BRG-060,Fragmentation,The bridge shall avoid relying on IP fragmentation for large ZeroMQ messages.,High
+BRG-061,Fragmentation,The maximum UDP application payload size shall be configurable or defined by a documented conservative default.,High
+BRG-062,Fragmentation,ZeroMQ messages larger than the configured UDP payload capacity shall be divided into application-level fragments.,High
+BRG-063,Fragmentation,All fragments belonging to the same original ZeroMQ message shall carry the same source identifier and sequence number.,High
+BRG-064,Fragmentation,The receiver shall support reassembly of fragmented messages.,High
+BRG-065,Fragmentation,The receiver shall detect incomplete reassembly caused by missing UDP fragments.,High
+BRG-066,Fragmentation,The receiver shall discard incomplete fragmented messages after a configurable reassembly timeout.,Medium
+BRG-070,Receiver,The companion receiver shall join the configured UDP multicast group and receive bridge packets.,High
+BRG-071,Receiver,The receiver shall validate the packet magic value and protocol version before processing a packet.,High
+BRG-072,Receiver,The receiver shall identify the original ZeroMQ source using the source identifier in the transport header.,High
+BRG-073,Receiver,The receiver shall detect sequence gaps independently for each source.,High
+BRG-074,Receiver,"The receiver shall maintain packet, message, byte, sequence-gap, malformed-packet, and incomplete-fragment statistics.",Medium
+BRG-075,Receiver,The receiver shall optionally display periodic runtime statistics without modifying captured message data.,Medium
+BRG-075A,Receiver,The receiver shall publish a general runtime statistics message over a configurable ZeroMQ PUB/SUB channel transported over TCP so that external applications can monitor and display the receiver's live operating status and data statistics.,High
+BRG-075B,Receiver,"The receiver runtime statistics message shall include, at a minimum, receiver uptime, total packets received, total complete messages received, total payload bytes received, per-source message counts, per-source sequence-gap or dropped-message counts, malformed-packet counts, incomplete-fragment counts, and current recording enabled or disabled state.",High
+BRG-075C,Receiver,The receiver shall publish runtime statistics periodically at a configurable update interval without blocking or materially affecting UDP multicast reception or binary recording.,High
+BRG-076,Receiver,The receiver shall support enabling and disabling binary message recording at runtime without restarting the receiver application.,High
+BRG-077,Receiver,The receiver shall subscribe to a configurable ZeroMQ PUB/SUB command channel transported over TCP for runtime control commands.,High
+BRG-078,Receiver,The receiver shall support command messages on the ZeroMQ TCP command channel that explicitly enable or disable recording of received messages to the binary capture file.,High
+BRG-079,Receiver,"Disabling recording via the ZeroMQ TCP command channel shall stop writing message records to the binary capture file while allowing UDP multicast reception, message processing, sequence monitoring, and runtime statistics to continue.",High
+BRG-080,Binary Capture,The receiver shall write received and successfully reconstructed messages to a single binary capture file.,High
+BRG-081,Binary Capture,The single binary capture file shall contain messages from all configured source identifiers.,High
+BRG-082,Binary Capture,"The binary capture format shall preserve enough metadata to identify the source, sequence number, timestamp, and original payload for every stored message.",High
+BRG-083,Binary Capture,The binary capture format shall be little-endian only.,High
+BRG-084,Binary Capture,The binary capture file shall contain a file-level header containing a magic value and capture-format version.,High
+BRG-085,Binary Capture,Each stored message shall contain a per-record header followed by the original reconstructed message payload.,High
+BRG-086,Binary Capture,The per-record header shall include the source identifier.,High
+BRG-087,Binary Capture,The per-record header shall include the source sequence number.,High
+BRG-088,Binary Capture,The per-record header shall include the message timestamp.,High
+BRG-089,Binary Capture,The per-record header shall include the stored payload length.,High
+BRG-090,Binary Capture,"The capture file format shall be suitable for deterministic offline post-processing by another C, C++, or Python application.",High
+BRG-091,Binary Capture,The binary capture format shall be documented sufficiently to allow an independent application to parse the file without using the receiver source code.,High
+BRG-092,Binary Capture,The receiver shall support clean file closure and flushing during normal shutdown.,High
+BRG-093,Binary Capture,"The receiver shall detect and report file open, write, and flush errors.",High
+BRG-100,Configuration,The bridge shall allow ZeroMQ IPC endpoints and their source identifiers to be configured without recompiling the application.,High
+BRG-101,Configuration,"The multicast group, UDP port, interface, TTL, and relevant buffering parameters shall be configurable without recompiling the application.",High
+BRG-102,Configuration,The receiver shall allow multicast and output-file settings to be configured without recompiling the application.,High
+BRG-103,Configuration,The applications shall validate configuration values at startup and shall report invalid or conflicting settings.,High
+BRG-110,Robustness,The applications shall handle SIGINT and SIGTERM and perform an orderly shutdown.,High
+BRG-111,Robustness,A failure or malformed message from one input source shall not terminate processing of unrelated sources unless the failure prevents safe operation.,High
+BRG-112,Robustness,The bridge shall report ZeroMQ receive errors and UDP transmission errors.,High
+BRG-113,Robustness,The receiver shall reject malformed or truncated UDP bridge packets.,High
+BRG-114,Robustness,The software shall avoid unbounded memory growth under sustained traffic.,High
+BRG-115,Robustness,Runtime logging shall be configurable so that high-rate debug output can be disabled in normal operation.,Medium
+BRG-120,Performance,The bridge shall minimize copying of message payload data where practical.,Medium
+BRG-121,Performance,The bridge shall be suitable for continuous high-rate telemetry and debug data forwarding.,High
+BRG-122,Performance,"The bridge and receiver shall expose sufficient counters or statistics to identify packet loss, processing overruns, or receive-side drops.",Medium
+BRG-130,Testing,The project shall include a test ZeroMQ publisher capable of generating messages on one or more IPC endpoints.,Medium
+BRG-131,Testing,The project shall include tests demonstrating that multiple ZeroMQ subscribers can receive messages from the same PUB endpoint without the debug bridge stealing messages from another subscriber.,High
+BRG-132,Testing,The project shall include tests for multiple simultaneous ZeroMQ IPC sources.,High
+BRG-133,Testing,The project shall include tests for UDP multicast transmission and reception.,High
+BRG-134,Testing,The project shall include tests for sequence-gap detection.,High
+BRG-135,Testing,The project shall include tests for application-level fragmentation and reassembly.,High
+BRG-136,Testing,"The project shall include tests for malformed, missing, and out-of-order UDP fragments.",Medium
+BRG-137,Testing,The project shall include a utility or documented procedure for validating the contents of the generated binary capture file.,High
+BRG-140,Documentation,"The project shall include a README containing build, configuration, execution, and test instructions.",High
+BRG-141,Documentation,The project shall document the ZeroMQ IPC-to-UDP multicast architecture and data flow.,High
+BRG-142,Documentation,The project shall document the UDP wire protocol field-by-field.,High
+BRG-143,Documentation,The project shall document the binary capture file format field-by-field.,High
+BRG-144,Documentation,The project shall provide example configurations for multiple IPC publishers feeding one UDP multicast stream.,High
+BRG-145,Documentation,"The project shall document assumptions, limitations, expected packet-loss behavior, and relevant performance tradeoffs of using UDP multicast.",High
+BRG-146,Documentation,The project shall include guidance for later integration into a Yocto recipe and embedded Linux deployment.,Medium

@@ -1,0 +1,8 @@
+build/
+build-*/
+dist/
+*.cap
+*.tar.gz
+.gitlab-ci-local/
+compile_commands.json
+.cache/
