@@ -5,10 +5,10 @@
 #include <string>
 #include <vector>
 
-#include "ipcrelay/byteorder.hpp"
 #include "ipcrelay/capture_format.hpp"
 #include "ipcrelay/capture_reader.hpp"
 #include "ipcrelay/capture_writer.hpp"
+#include "ipcrelay/common/byteorder.hpp"
 #include "test_framework.hpp"
 
 using namespace ipcrelay;

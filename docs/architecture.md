@@ -25,6 +25,7 @@ The system has two applications (BRG-003) plus two tools:
 | `ipc-relay-testpub`  | Test publisher that generates verifiable messages on one or more IPC endpoints. |
 | `ipc-relay-ctl`      | Web control page for the receiver: a backend that relays statistics and commands between the receiver's ZeroMQ channels and browsers over a WebSocket. Also has one-shot `send`/`monitor` modes. |
 | `capture_inspect.py` | Standalone capture file validator. |
+| `ipc-relay-capture-to-csv` | Decodes a capture file into one CSV per testpub message type. |
 
 ## Bridge
 
@@ -224,20 +225,22 @@ the capture file (BRG-092, BRG-110).
 ## Source layout
 
 ```
-include/ipcrelay/     public headers of the common library
-src/common/           wire protocol, config parser, UDP, ZeroMQ helpers, logging
-src/bridge/           ipc-relay-bridge (IPC subscribers -> UDP multicast sender)
-tools/receiver/       ipc-relay-receiver
-tools/receiver/lib/   capture format, reassembly, sequence tracking, JSON (receiver-only)
-tools/testpub/        ipc-relay-testpub
-tools/ctl/            ipc-relay-ctl (CLI modes in main.cpp)
-tools/ctl/backend/    web backend: HTTP, WebSocket, JSON parser, control server
-tools/ctl/frontend/   browser frontend (embedded into the binary at build time)
-tools/                capture_inspect.py
-tests/unit/           unit tests (self-contained framework)
-tests/integration/    end-to-end shell/Python tests (run by ctest)
-docker/               build/runtime images and compose file for the full pipeline
-examples/             example configurations
-packaging/            systemd units and Yocto recipe
-docs/                 this documentation
+include/ipcrelay/common/  headers of the common library (src/common/)
+include/ipcrelay/bridge/  headers of ipc-relay-bridge (src/bridge/)
+src/common/               wire protocol, config parser, UDP, ZeroMQ helpers, logging
+src/bridge/               ipc-relay-bridge (IPC subscribers -> UDP multicast sender)
+tools/receiver/           ipc-relay-receiver
+tools/receiver/lib/       capture format, reassembly, sequence tracking, JSON (receiver-only)
+tools/testpub/            ipc-relay-testpub
+tools/ctl/                ipc-relay-ctl (CLI modes in main.cpp)
+tools/ctl/backend/        web backend: HTTP, WebSocket, JSON parser, control server
+tools/ctl/frontend/       browser frontend (embedded into the binary at build time)
+tools/capture_to_csv/     ipc-relay-capture-to-csv
+tools/                    capture_inspect.py
+tests/unit/               unit tests (self-contained framework)
+tests/integration/        end-to-end shell/Python tests (run by ctest)
+docker/                   build/runtime images and compose file for the full pipeline
+examples/                 example configurations
+packaging/                systemd units and Yocto recipe
+docs/                     this documentation
 ```

@@ -4,8 +4,8 @@
 #include <string>
 #include <vector>
 
-#include "ipcrelay/config.hpp"
-#include "ipcrelay/log.hpp"
+#include "ipcrelay/common/config.hpp"
+#include "ipcrelay/common/log.hpp"
 
 namespace ipcrelay {
 

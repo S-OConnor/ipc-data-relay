@@ -3,8 +3,8 @@
 #include <set>
 #include <sstream>
 
-#include "ipcrelay/net_util.hpp"
-#include "ipcrelay/wire_protocol.hpp"
+#include "ipcrelay/common/net_util.hpp"
+#include "ipcrelay/common/wire_protocol.hpp"
 
 namespace ipcrelay {
 

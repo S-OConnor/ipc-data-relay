@@ -1,8 +1,8 @@
 #include <cstring>
 #include <vector>
 
-#include "ipcrelay/byteorder.hpp"
-#include "ipcrelay/wire_protocol.hpp"
+#include "ipcrelay/common/byteorder.hpp"
+#include "ipcrelay/common/wire_protocol.hpp"
 #include "test_framework.hpp"
 
 using namespace ipcrelay;

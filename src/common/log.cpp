@@ -1,4 +1,4 @@
-#include "ipcrelay/log.hpp"
+#include "ipcrelay/common/log.hpp"
 
 #include <atomic>
 #include <cstdio>

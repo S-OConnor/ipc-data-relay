@@ -1,8 +1,8 @@
 #include <string>
 #include <vector>
 
-#include "bridge/bridge_config.hpp"
-#include "ipcrelay/config.hpp"
+#include "ipcrelay/bridge/bridge_config.hpp"
+#include "ipcrelay/common/config.hpp"
 #include "receiver/receiver_config.hpp"
 #include "test_framework.hpp"
 

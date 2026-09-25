@@ -1,6 +1,6 @@
-#include "ipcrelay/wire_protocol.hpp"
+#include "ipcrelay/common/wire_protocol.hpp"
 
-#include "ipcrelay/byteorder.hpp"
+#include "ipcrelay/common/byteorder.hpp"
 
 namespace ipcrelay::wire {
 

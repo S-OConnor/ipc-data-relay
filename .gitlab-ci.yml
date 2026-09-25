@@ -1,15 +1,29 @@
 # GitLab CI pipeline for ipc-data-relay.
 #
-# Runs locally with gitlab-ci-local (https://github.com/firecow/gitlab-ci-local):
-#   gitlab-ci-local                 # whole pipeline
-#   gitlab-ci-local build           # one job
-#   gitlab-ci-local --list          # show jobs
+#   build-image  docker/Dockerfile.build -> $BUILD_IMAGE (toolchain for every later job)
+#   build        compile the relay (bridge) and the tools inside $BUILD_IMAGE
+#   test         unit tests, integration tests, example configurations
+#   docker       runtime images (relay, receiver, testpub) and the web front (ctl)
+#   lint/package static analysis (independent) and the release tarball
+#
+# Images are built with docker-in-docker and pushed to the project's container
+# registry as $CI_REGISTRY_IMAGE/<name>:<short sha> (plus :latest on the
+# default branch).
+#
+# Runs locally with gitlab-ci-local (https://github.com/firecow/gitlab-ci-local)
+# through the wrappers, which build the images into the host's docker/podman
+# instead of a registry:
+#   scripts/pipeline.sh             # whole pipeline, stage by stage, stops at the first failure
+#   scripts/ci-local.sh unit-tests  # one job (plus --needs to run what it depends on)
+#   scripts/ci-local.sh --list      # show jobs
 # The integration tests use UDP multicast on the container's loopback
 # interface, so no special network configuration is needed.
 
 stages:
+  - build-image
   - build
   - test
+  - docker
   - lint
   - package
 
@@ -17,22 +31,64 @@ variables:
   GIT_DEPTH: "1"
   DEBIAN_FRONTEND: noninteractive
   CMAKE_BUILD_TYPE: Release
+  # Where images are pushed and how they are tagged. scripts/ci-local.sh
+  # overrides these (localhost/...:ci-local, no push).
+  IMAGE_PREFIX: $CI_REGISTRY_IMAGE
+  IMAGE_TAG: $CI_COMMIT_SHORT_SHA
+  PUSH_IMAGES: "true"
+  BUILD_IMAGE: ${IMAGE_PREFIX}/ipc-relay-build:${IMAGE_TAG}
 
 default:
   image: debian:bookworm
   interruptible: true
 
-.build-deps:
+# Docker-in-docker (TLS) for the jobs that build images.
+.docker:
+  image: docker:27
+  services:
+    - name: docker:27-dind
+      alias: docker
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: /certs
+    DOCKER_TLS_VERIFY: "1"
+    DOCKER_CERT_PATH: /certs/client
   before_script:
-    - apt-get update -qq
-    - apt-get install -y -qq --no-install-recommends
-        build-essential cmake pkg-config libzmq3-dev python3 ca-certificates > /dev/null
-    - cmake --version | head -1
+    - docker version --format 'docker client {{.Client.Version}}, server {{.Server.Version}}'
+    - |
+      if [ "$PUSH_IMAGES" = "true" ]; then
+        echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+      fi
+    # publish IMAGE: push it, and on the default branch also as :latest.
+    - |
+      publish() {
+        [ "$PUSH_IMAGES" = "true" ] || { echo "PUSH_IMAGES=$PUSH_IMAGES: not pushing $1"; return 0; }
+        docker push "$1"
+        if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
+          docker tag "$1" "${1%:*}:latest"
+          docker push "${1%:*}:latest"
+        fi
+      }
+
+# ---------------------------------------------------------------- build-image
+
+build-image:
+  stage: build-image
+  extends: .docker
+  script:
+    - docker build -f docker/Dockerfile.build
+        --build-arg CMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE
+        -t "$BUILD_IMAGE" .
+    - publish "$BUILD_IMAGE"
+
+# ---------------------------------------------------------------------- build
 
 build:
   stage: build
-  extends: .build-deps
+  image: $BUILD_IMAGE
+  needs: [build-image]
   script:
+    - cmake --version | head -1
     - cmake -S . -B build-ci -DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE -DIPCRELAY_WARNINGS_AS_ERRORS=ON
     - cmake --build build-ci -j"$(nproc)"
     - ./build-ci/ipc-relay-bridge --version
@@ -42,10 +98,15 @@ build:
       - build-ci/
     expire_in: 1 day
 
-unit-tests:
+# ----------------------------------------------------------------------- test
+
+.test:
   stage: test
-  extends: .build-deps
-  needs: [build]
+  image: $BUILD_IMAGE
+  needs: [build-image, build]
+
+unit-tests:
+  extends: .test
   script:
     - ctest --test-dir build-ci -R 'unit_tests|capture_inspect_selftest' --output-on-failure --output-junit unit.xml
   artifacts:
@@ -54,9 +115,7 @@ unit-tests:
       junit: build-ci/unit.xml
 
 integration-tests:
-  stage: test
-  extends: .build-deps
-  needs: [build]
+  extends: .test
   script:
     - ctest --test-dir build-ci -E 'unit_tests|capture_inspect_selftest' --output-on-failure --output-junit integration.xml
   artifacts:
@@ -65,15 +124,42 @@ integration-tests:
       junit: build-ci/integration.xml
 
 config-examples:
-  stage: test
-  extends: .build-deps
-  needs: [build]
+  extends: .test
   script:
     # Example configurations must validate (interface names are overridden
     # because the CI container has no eth0).
     - ./build-ci/ipc-relay-bridge --config examples/bridge.conf --set multicast_interface=127.0.0.1 --check
     - ./build-ci/ipc-relay-bridge --config examples/bridge-three-publishers.conf --check
     - ./build-ci/ipc-relay-receiver --config examples/receiver.conf --set multicast_interface=127.0.0.1 --check
+
+# --------------------------------------------------------------------- docker
+# The runtime Dockerfiles copy their binaries from $BUILD_IMAGE (BUILD_IMAGE
+# build argument), so they are only built once the tests have passed.
+
+runtime-images:
+  stage: docker
+  extends: .docker
+  needs: [build-image, unit-tests, integration-tests]
+  parallel:
+    matrix:
+      - COMPONENT: [relay, receiver, testpub]
+  script:
+    - docker build -f docker/Dockerfile.$COMPONENT
+        --build-arg BUILD_IMAGE="$BUILD_IMAGE"
+        -t "$IMAGE_PREFIX/ipc-relay-$COMPONENT:$IMAGE_TAG" .
+    - publish "$IMAGE_PREFIX/ipc-relay-$COMPONENT:$IMAGE_TAG"
+
+frontend-image:
+  stage: docker
+  extends: .docker
+  needs: [build-image, unit-tests, integration-tests]
+  script:
+    - docker build -f docker/Dockerfile.ctl
+        --build-arg BUILD_IMAGE="$BUILD_IMAGE"
+        -t "$IMAGE_PREFIX/ipc-relay-ctl:$IMAGE_TAG" .
+    - publish "$IMAGE_PREFIX/ipc-relay-ctl:$IMAGE_TAG"
+
+# ----------------------------------------------------------------------- lint
 
 static-analysis:
   stage: lint
@@ -86,14 +172,16 @@ static-analysis:
         --error-exitcode=1 --inline-suppr --quiet
         --suppress=missingIncludeSystem -I include -I tools/receiver/include -I src -I tools -I tools/ctl/backend
         src include tools tests/unit tests/helpers
-    - shellcheck -x tests/integration/*.sh
+    - shellcheck -x tests/integration/*.sh scripts/*.sh
     - python3 -m py_compile tools/capture_inspect.py tests/integration/test_receiver_faults.py
         tests/integration/test_ctl_web.py
 
+# -------------------------------------------------------------------- package
+
 package:
   stage: package
-  extends: .build-deps
-  needs: [build, unit-tests, integration-tests]
+  image: $BUILD_IMAGE
+  needs: [build-image, build, unit-tests, integration-tests]
   script:
     - cmake --install build-ci --prefix "dist/ipc-data-relay"
     - cp -r docs examples packaging README.md dist/ipc-data-relay/

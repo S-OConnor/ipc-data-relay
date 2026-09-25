@@ -8,9 +8,9 @@
 #include <zmq.h>
 
 #include "ipcrelay/capture_writer.hpp"
+#include "ipcrelay/common/udp_multicast.hpp"
 #include "ipcrelay/reassembler.hpp"
 #include "ipcrelay/sequence_tracker.hpp"
-#include "ipcrelay/udp_multicast.hpp"
 #include "receiver_config.hpp"
 #include "receiver_stats.hpp"
 

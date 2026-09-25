@@ -1,9 +1,10 @@
-// Sequential reader for the binary capture file. Used by the tests; the
-// canonical standalone validator is tools/capture_inspect.py.
+// Sequential reader for the binary capture file. Used by the tests and
+// ipc-relay-capture-to-csv; the canonical standalone validator is
+// tools/capture_inspect.py.
 #pragma once
 
 #include <cstdint>
-#include <cstdio>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -13,10 +14,6 @@ namespace ipcrelay::capture {
 
 class CaptureReader {
 public:
-    CaptureReader() = default;
-    ~CaptureReader();
-    CaptureReader(const CaptureReader&) = delete;
-    CaptureReader& operator=(const CaptureReader&) = delete;
     bool open(const std::string& path);
     const FileHeader& file_header() const { return file_header_; }
 
@@ -26,7 +23,7 @@ public:
     const std::string& error() const { return error_; }
 
 private:
-    std::FILE* file_ = nullptr;
+    std::ifstream file_;
     FileHeader file_header_;
     std::string error_;
 };

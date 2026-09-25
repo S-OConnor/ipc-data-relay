@@ -5,18 +5,24 @@
 
 namespace ipcrelay::capture {
 
-CaptureReader::~CaptureReader() {
-    if (file_) std::fclose(file_);
+namespace {
+
+// Reads up to n bytes; returns the number actually read.
+std::size_t read_bytes(std::ifstream& f, uint8_t* out, std::size_t n) {
+    f.read(reinterpret_cast<char*>(out), static_cast<std::streamsize>(n));
+    return static_cast<std::size_t>(f.gcount());
 }
 
+}  // namespace
+
 bool CaptureReader::open(const std::string& path) {
-    file_ = std::fopen(path.c_str(), "rb");
+    file_.open(path, std::ios::binary);
     if (!file_) {
         error_ = std::string("open '") + path + "': " + std::strerror(errno);
         return false;
     }
     uint8_t raw[kFileHeaderSize];
-    if (std::fread(raw, 1, kFileHeaderSize, file_) != kFileHeaderSize) {
+    if (read_bytes(file_, raw, kFileHeaderSize) != kFileHeaderSize) {
         error_ = "short file header";
         return false;
     }
@@ -25,7 +31,7 @@ bool CaptureReader::open(const std::string& path) {
         return false;
     }
     if (file_header_.header_length > kFileHeaderSize) {
-        if (std::fseek(file_, static_cast<long>(file_header_.header_length - kFileHeaderSize), SEEK_CUR) != 0) {
+        if (!file_.seekg(static_cast<std::streamoff>(file_header_.header_length - kFileHeaderSize), std::ios::cur)) {
             error_ = "cannot skip extended header";
             return false;
         }
@@ -34,9 +40,9 @@ bool CaptureReader::open(const std::string& path) {
 }
 
 bool CaptureReader::next(RecordHeader& hdr, std::vector<uint8_t>& payload) {
-    if (!file_) return false;
+    if (!file_.is_open() || !error_.empty()) return false;
     uint8_t raw[kRecordHeaderSize];
-    std::size_t n = std::fread(raw, 1, kRecordHeaderSize, file_);
+    std::size_t n = read_bytes(file_, raw, kRecordHeaderSize);
     if (n == 0) return false;  // clean EOF
     if (n != kRecordHeaderSize) {
         error_ = "truncated record header";
@@ -47,7 +53,7 @@ bool CaptureReader::next(RecordHeader& hdr, std::vector<uint8_t>& payload) {
         return false;
     }
     payload.resize(hdr.payload_length);
-    if (hdr.payload_length > 0 && std::fread(payload.data(), 1, hdr.payload_length, file_) != hdr.payload_length) {
+    if (hdr.payload_length > 0 && read_bytes(file_, payload.data(), hdr.payload_length) != hdr.payload_length) {
         error_ = "truncated record payload";
         return false;
     }

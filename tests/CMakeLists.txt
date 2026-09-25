@@ -6,14 +6,15 @@ add_executable(unit_tests
   unit/test_reassembler.cpp
   unit/test_sequence_tracker.cpp
   unit/test_capture_format.cpp
+  unit/test_capture_to_csv.cpp
   unit/test_config.cpp
   unit/test_json_writer.cpp
   unit/test_zmq_pubsub.cpp
   unit/test_ctl_protocol.cpp
   ${CMAKE_SOURCE_DIR}/src/bridge/bridge_config.cpp
   ${CMAKE_SOURCE_DIR}/tools/receiver/receiver_config.cpp)
-target_include_directories(unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tools)
-target_link_libraries(unit_tests PRIVATE ipcrelay_receiver_core ipcrelay_ctl_core
+target_include_directories(unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/tools)
+target_link_libraries(unit_tests PRIVATE ipcrelay_receiver_core ipcrelay_ctl_core ipcrelay_csv_export
   ipcrelay_common ipcrelay_warnings)
 add_test(NAME unit_tests COMMAND unit_tests)
 
@@ -30,6 +31,7 @@ set(IPCRELAY_TEST_ENV
   "TESTPUB=$<TARGET_FILE:ipc-relay-testpub>"
   "CTL=$<TARGET_FILE:ipc-relay-ctl>"
   "SUB_COUNTER=$<TARGET_FILE:sub_counter>"
+  "CAPTURE_TO_CSV=$<TARGET_FILE:ipc-relay-capture-to-csv>"
   "INSPECT=${CMAKE_SOURCE_DIR}/tools/capture_inspect.py"
   "SOURCE_DIR=${CMAKE_SOURCE_DIR}")
 

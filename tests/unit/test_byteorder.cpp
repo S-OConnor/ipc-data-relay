@@ -1,4 +1,4 @@
-#include "ipcrelay/byteorder.hpp"
+#include "ipcrelay/common/byteorder.hpp"
 #include "test_framework.hpp"
 
 using namespace ipcrelay;

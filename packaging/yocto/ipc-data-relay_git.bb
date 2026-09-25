@@ -47,6 +47,7 @@ FILES:${PN}-tools = " \
     ${bindir}/ipc-relay-testpub \
     ${bindir}/ipc-relay-ctl \
     ${bindir}/ipc-relay-capture-inspect \
+    ${bindir}/ipc-relay-capture-to-csv \
 "
 FILES:${PN}-examples = "${sysconfdir}/ipc-data-relay"
 CONFFILES:${PN}-examples = " \

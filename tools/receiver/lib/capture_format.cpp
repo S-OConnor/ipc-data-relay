@@ -2,7 +2,7 @@
 
 #include <cstring>
 
-#include "ipcrelay/byteorder.hpp"
+#include "ipcrelay/common/byteorder.hpp"
 
 namespace ipcrelay::capture {
 

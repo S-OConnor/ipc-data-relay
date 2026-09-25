@@ -12,7 +12,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "ipcrelay/wire_protocol.hpp"
+#include "ipcrelay/common/wire_protocol.hpp"
 
 namespace ipcrelay {
 

@@ -8,8 +8,8 @@
 
 #include <zmq.h>
 
-#include "bridge_config.hpp"
-#include "ipcrelay/udp_multicast.hpp"
+#include "ipcrelay/bridge/bridge_config.hpp"
+#include "ipcrelay/common/udp_multicast.hpp"
 
 namespace ipcrelay {
 

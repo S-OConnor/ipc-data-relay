@@ -1,4 +1,4 @@
-#include "ipcrelay/net_util.hpp"
+#include "ipcrelay/common/net_util.hpp"
 
 #include <arpa/inet.h>
 #include <ifaddrs.h>
@@ -8,7 +8,7 @@
 
 #include <cstring>
 
-#include "ipcrelay/config.hpp"
+#include "ipcrelay/common/config.hpp"
 
 namespace ipcrelay {
 

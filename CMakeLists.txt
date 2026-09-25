@@ -82,6 +82,7 @@ add_subdirectory(tools/receiver)
 # ---------------------------------------------------------------------------
 if(IPCRELAY_BUILD_TOOLS)
   add_subdirectory(tools/testpub)
+  add_subdirectory(tools/capture_to_csv)
   add_subdirectory(tools/ctl)
 endif()
 

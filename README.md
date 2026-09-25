@@ -21,6 +21,7 @@ receiver or validate what was recorded:
 | [`ipc-relay-testpub`](#ipc-relay-testpub) | [tools/testpub/](tools/testpub/) | Test publisher that generates deterministic, verifiable messages |
 | [`ipc-relay-ctl`](#ipc-relay-ctl) | [tools/ctl/](tools/ctl/) | Web control page for the receiver (live counts, start/stop recording), plus one-shot command/monitor modes |
 | [`capture_inspect.py`](#capture_inspectpy) | [tools/capture_inspect.py](tools/capture_inspect.py) | Standalone capture-file validator (Python standard library only) |
+| [`ipc-relay-capture-to-csv`](#ipc-relay-capture-to-csv) | [tools/capture_to_csv/](tools/capture_to_csv/) | Decodes a capture file into one CSV per message type |
 
 Documentation:
 
@@ -184,11 +185,23 @@ file and logs final statistics.
 ### ipc-relay-testpub
 
 [tools/testpub/](tools/testpub/). A ZeroMQ PUB publisher that stands in for
-real applications. It binds one or more endpoints and sends deterministic
-messages whose content `capture_inspect.py --verify-testpub` can check end to
-end. Each payload holds a magic number, the publisher index, a per-endpoint
-message index, the length and a filler pattern (see the header comment in
-[tools/testpub/main.cpp](tools/testpub/main.cpp)).
+real applications. It binds one or more endpoints and sends simulated
+telemetry whose framing `capture_inspect.py --verify-testpub` can check end to
+end. Each endpoint carries one data type, by its position on the command line
+(the 4th endpoint starts again at board health):
+
+| Endpoint | Data type | Structure | Contents |
+|----------|-----------|-----------|----------|
+| 1st | 1 | `BoardHealth` (80 bytes) | Voltage and current of six power rails, four temperatures, alarm bits |
+| 2nd | 2 | `ModeStatus` (32 bytes) | System mode (boot/standby/operational/maintenance/fault), status flags, fault code, uptime, heartbeat |
+| 3rd | 3 | `PtpStats` (56 bytes) | Port and servo state, offset from master, mean path delay, frequency adjustment, grandmaster identity and class |
+
+Each payload holds a magic number, the publisher index, a per-endpoint
+message index, the length, the data type and length, the data structure and
+a filler pattern up to the chosen size (see the header comment in
+[tools/testpub/main.cpp](tools/testpub/main.cpp)). The structures are plain C
+records in [tools/testpub/telemetry.hpp](tools/testpub/telemetry.hpp),
+encoded little-endian without padding.
 
 ```
 ipc-relay-testpub --endpoint EP [--endpoint EP ...] [options]
@@ -196,7 +209,8 @@ ipc-relay-testpub --endpoint EP [--endpoint EP ...] [options]
   -e, --endpoint EP      ZeroMQ PUB bind endpoint, e.g. ipc:///tmp/src1.sock (repeatable)
   -n, --count N          Messages per endpoint (0 = until SIGINT/SIGTERM)   [1000]
   -r, --rate HZ          Messages per second per endpoint (0 = unthrottled) [1000]
-  -s, --size BYTES       Minimum payload size (excluding topic)             [64]
+  -s, --size BYTES       Minimum payload size (excluding topic); raised to
+                         fit the header and the channel's data structure  [64]
   -S, --size-max BYTES   Maximum payload size; random in [size, size-max]   [=size]
   -t, --topic PREFIX     Topic prefix prepended to every message            [""]
   -m, --multipart        Send the topic as a separate first frame
@@ -286,6 +300,33 @@ python3 tools/capture_inspect.py --self-test                   # exercises the p
 
 Exit status is 0 when the file is well formed and all requested checks pass,
 1 otherwise.
+
+### ipc-relay-capture-to-csv
+
+[tools/capture_to_csv/](tools/capture_to_csv/). Decodes the
+`ipc-relay-testpub` telemetry in a capture file and writes one CSV per
+message type. It reads the capture with the receiver's `CaptureReader` and
+decodes payloads with the structures in
+[tools/testpub/telemetry.hpp](tools/testpub/telemetry.hpp).
+
+```sh
+ipc-relay-capture-to-csv capture.cap           # writes capture_csv/*.csv
+ipc-relay-capture-to-csv -o out/ capture.cap   # writes out/*.csv
+```
+
+| File | Contents |
+|------|----------|
+| `board_health.csv` | Rail voltages and currents, temperatures, alarm flags |
+| `mode_status.csv` | System mode, previous mode, status flags, fault code |
+| `ptp_stats.csv` | PTP offset, path delay, frequency adjustment, port/servo state |
+| `unknown.csv` | Payloads that are not testpub telemetry, as hex |
+
+A file is only written when the capture contains that type. Every row starts
+with `source_id`, `sequence`, `timestamp_ns`, `flags`, `publisher_index` and
+`message_index`. Enumerations are written as names (`operational`, `slave`)
+and bit fields as the integer plus a `|`-separated list of set flags. Rows
+are in capture order. The exit status is 1 if the capture is malformed or
+truncated; the CSVs then contain every record before the error.
 
 ## Running everything together
 

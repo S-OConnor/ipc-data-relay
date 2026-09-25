@@ -4,12 +4,12 @@
 #include <cerrno>
 #include <cstring>
 
-#include "ipcrelay/config.hpp"
-#include "ipcrelay/log.hpp"
-#include "ipcrelay/signal_handler.hpp"
-#include "ipcrelay/time_util.hpp"
-#include "ipcrelay/wire_protocol.hpp"
-#include "ipcrelay/zmq_util.hpp"
+#include "ipcrelay/common/config.hpp"
+#include "ipcrelay/common/log.hpp"
+#include "ipcrelay/common/signal_handler.hpp"
+#include "ipcrelay/common/time_util.hpp"
+#include "ipcrelay/common/wire_protocol.hpp"
+#include "ipcrelay/common/zmq_util.hpp"
 
 namespace ipcrelay {
 

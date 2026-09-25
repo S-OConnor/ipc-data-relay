@@ -11,7 +11,7 @@
 
 #include <zmq.h>
 
-#include "ipcrelay/zmq_util.hpp"
+#include "ipcrelay/common/zmq_util.hpp"
 #include "test_framework.hpp"
 
 using namespace ipcrelay;

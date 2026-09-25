@@ -1,4 +1,4 @@
-#include "ipcrelay/config.hpp"
+#include "ipcrelay/common/config.hpp"
 
 #include <arpa/inet.h>
 #include <algorithm>

@@ -5,10 +5,10 @@
 #include <string>
 #include <vector>
 
-#include "ipcrelay/config.hpp"
-#include "ipcrelay/log.hpp"
-#include "ipcrelay/signal_handler.hpp"
-#include "ipcrelay/zmq_util.hpp"
+#include "ipcrelay/common/config.hpp"
+#include "ipcrelay/common/log.hpp"
+#include "ipcrelay/common/signal_handler.hpp"
+#include "ipcrelay/common/zmq_util.hpp"
 #include "receiver.hpp"
 #include "receiver_config.hpp"
 

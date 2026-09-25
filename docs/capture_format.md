@@ -90,7 +90,7 @@ with open("capture.cap", "rb") as f:
 
 C/C++ readers should read the header fields byte-by-byte (or `memcpy` into
 fixed-width integers on a little-endian host) rather than casting the file
-bytes to a packed struct. `include/ipcrelay/capture_reader.hpp` is a C++
+bytes to a packed struct. `tools/receiver/include/ipcrelay/capture_reader.hpp` is a C++
 example.
 
 ## Validation utility
@@ -105,3 +105,18 @@ tools/capture_inspect.py --verify-testpub --strict capture.cap
 The tool exits non-zero on any structural error, on any failed
 `--expect-*` check, on testpub pattern mismatches with `--verify-testpub`,
 and on sequence gaps with `--strict` (BRG-137).
+
+## Exporting to CSV
+
+```
+ipc-relay-capture-to-csv capture.cap             # writes capture_csv/<type>.csv
+ipc-relay-capture-to-csv -o out/ capture.cap     # writes out/<type>.csv
+```
+
+`ipc-relay-capture-to-csv` (`tools/capture_to_csv/`) decodes `ipc-relay-testpub` payloads
+(`tools/testpub/telemetry.hpp`) and writes one CSV per message type:
+`board_health.csv`, `mode_status.csv` and `ptp_stats.csv`. Payloads it
+cannot decode go to `unknown.csv` as hex. Each row starts with the record
+header (`source_id`, `sequence`, `timestamp_ns`, `flags`) and the testpub
+header (`publisher_index`, `message_index`), followed by the decoded fields.
+Rows are in capture order.

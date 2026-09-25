@@ -37,7 +37,9 @@ FLAG_FRAGMENTED = 0x0001
 FLAG_MULTIPART = 0x0002
 
 TESTPUB_MAGIC = 0x54534554   # "TEST"
-TESTPUB_HEADER = struct.Struct("<IIQI")
+TESTPUB_HEADER = struct.Struct("<IIQIHH")  # magic, publisher_index, message_index, payload_length, data_type, data_length
+# data_type -> (name, encoded size); see tools/testpub/telemetry.hpp
+TESTPUB_DATA_TYPES = {1: ("board_health", 80), 2: ("mode_status", 32), 3: ("ptp_stats", 56)}
 
 
 class CaptureError(Exception):
@@ -92,13 +94,22 @@ def verify_testpub_payload(payload, topic_prefix_len=None):
         idx = topic_prefix_len
     if len(payload) < idx + TESTPUB_HEADER.size:
         return False, "payload too short for testpub header"
-    magic, pub_index, msg_index, total_len = TESTPUB_HEADER.unpack_from(payload, idx)
+    magic, pub_index, msg_index, total_len, data_type, data_len = TESTPUB_HEADER.unpack_from(payload, idx)
     if magic != TESTPUB_MAGIC:
         return False, "bad testpub magic"
     if total_len != len(payload):
         return False, "testpub length field %d != payload length %d" % (total_len, len(payload))
+    if data_type not in TESTPUB_DATA_TYPES:
+        return False, "unknown testpub data type %d" % data_type
+    expected_type = 1 + pub_index % len(TESTPUB_DATA_TYPES)
+    if data_type != expected_type:
+        return False, "publisher %d sent data type %d, expected %d" % (pub_index, data_type, expected_type)
+    if data_len != TESTPUB_DATA_TYPES[data_type][1]:
+        return False, "data type %d has length %d, expected %d" % (data_type, data_len, TESTPUB_DATA_TYPES[data_type][1])
     body = payload[idx:]
-    for i in range(TESTPUB_HEADER.size, len(body)):
+    if len(body) < TESTPUB_HEADER.size + data_len:
+        return False, "payload too short for testpub data"
+    for i in range(TESTPUB_HEADER.size + data_len, len(body)):
         if body[i] != (msg_index + i) & 0xFF:
             return False, "filler mismatch at byte %d of message %d" % (i, msg_index)
     return True, (pub_index, msg_index)
@@ -229,13 +240,18 @@ def self_test():
             assert "magic" in str(e), e
         # testpub pattern check
         idx = 7
-        body = TESTPUB_HEADER.pack(TESTPUB_MAGIC, 0, idx, 40 + 3) + bytes(((idx + i) & 0xFF) for i in range(20, 40))
+        end = 24 + 32 + 20
+        body = (TESTPUB_HEADER.pack(TESTPUB_MAGIC, 1, idx, end + 3, 2, 32) + b"\xAA" * 32
+                + bytes(((idx + i) & 0xFF) for i in range(24 + 32, end)))
         ok, detail = verify_testpub_payload(b"TOP" + body)
-        assert ok and detail == (0, idx), detail
+        assert ok and detail == (1, idx), detail
         bad = bytearray(b"TOP" + body)
         bad[-1] ^= 0xFF
         ok, detail = verify_testpub_payload(bytes(bad))
         assert not ok, detail
+        wrong_type = TESTPUB_HEADER.pack(TESTPUB_MAGIC, 0, idx, len(body), 2, 32) + body[TESTPUB_HEADER.size:]
+        ok, detail = verify_testpub_payload(wrong_type)
+        assert not ok and "expected 1" in detail, detail
     finally:
         os.unlink(path)
     print("capture_inspect self-test OK")

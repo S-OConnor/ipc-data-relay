@@ -21,7 +21,7 @@ to its implementation and verification.
 | BRG-030..BRG-033 | `UdpMulticastSender::open`, `multicast_*` options | e2e (loopback); config tests |
 | BRG-034 | Raw `sendmsg` datagrams; receiver test uses Python sockets | `receiver_fault_injection` |
 | BRG-035 | Payload copied verbatim (scatter/gather) | `capture_inspect.py --verify-testpub` in e2e |
-| BRG-036, BRG-040..BRG-053 | `include/ipcrelay/wire_protocol.hpp`, `src/common/wire_protocol.cpp`, `byteorder.hpp`; `docs/wire_protocol.md` | unit `wire_*`; `receiver_fault_injection` (independent encoder) |
+| BRG-036, BRG-040..BRG-053 | `include/ipcrelay/common/wire_protocol.hpp`, `src/common/wire_protocol.cpp`, `byteorder.hpp`; `docs/wire_protocol.md` | unit `wire_*`; `receiver_fault_injection` (independent encoder) |
 | BRG-047 | `Bridge::transmit` increments per-source `next_sequence` once per message | e2e `--strict` (no gaps) |
 | BRG-048, BRG-049 | `now_realtime_ns()` in header | unit `wire_roundtrip_single_fragment`; fault test timestamp check |
 | BRG-060..BRG-063 | `max_datagram_size` (default 1400), `Bridge::transmit` fragmentation | unit `wire_fragment_count`; e2e (fragmented counts) |

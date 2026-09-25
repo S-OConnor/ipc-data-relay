@@ -15,13 +15,13 @@
 
 #include <zmq.h>
 
-#include "ipcrelay/config.hpp"
+#include "ipcrelay/common/config.hpp"
+#include "ipcrelay/common/log.hpp"
+#include "ipcrelay/common/net_util.hpp"
+#include "ipcrelay/common/signal_handler.hpp"
+#include "ipcrelay/common/time_util.hpp"
+#include "ipcrelay/common/zmq_util.hpp"
 #include "ipcrelay/json_writer.hpp"
-#include "ipcrelay/log.hpp"
-#include "ipcrelay/net_util.hpp"
-#include "ipcrelay/signal_handler.hpp"
-#include "ipcrelay/time_util.hpp"
-#include "ipcrelay/zmq_util.hpp"
 #include "json_value.hpp"
 #include "web_assets.hpp"
 #include "websocket.hpp"

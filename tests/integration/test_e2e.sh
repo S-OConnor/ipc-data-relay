@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # End-to-end pipeline test (BRG-131, BRG-132, BRG-133, BRG-135, BRG-137):
 #   testpub (3 IPC endpoints) -> bridge (3 SUB sockets) -> UDP multicast
-#   -> receiver -> capture file -> capture_inspect.py
+#   -> receiver -> capture file -> capture_inspect.py and ipc-relay-capture-to-csv
 # while an independent subscriber on one endpoint verifies that the bridge
 # does not steal any messages.
 set -e
 # shellcheck source=tests/integration/common.sh
 . "$(dirname "$0")/common.sh"
 : "${SUB_COUNTER:?SUB_COUNTER not set}"
+: "${CAPTURE_TO_CSV:?CAPTURE_TO_CSV not set}"
 
 PER_SOURCE=${PER_SOURCE:-1500}
 RATE=${RATE:-3000}
@@ -98,5 +99,13 @@ echo "receiver: messages=$MSGS kernel_drops=$KDROPS malformed=$MALFORMED incompl
 
 python3 "$INSPECT" --verify-testpub --strict --expect-sources 3 --expect-per-source "$PER_SOURCE" "$CAP" \
     || fail "capture validation failed"
+
+# One CSV per testpub data type, one row per message (source N -> type N).
+"$CAPTURE_TO_CSV" -o "$WORK/csv" "$CAP" >/dev/null || fail "capture-to-csv failed"
+for t in board_health mode_status ptp_stats; do
+    ROWS=$(( $(wc -l <"$WORK/csv/$t.csv") - 1 ))
+    [ "$ROWS" = "$PER_SOURCE" ] || fail "$t.csv has $ROWS rows, expected $PER_SOURCE"
+done
+[ ! -e "$WORK/csv/unknown.csv" ] || fail "capture-to-csv could not decode some payloads"
 grep -q 'final statistics' "$WORK/bridge.log" || fail "bridge did not print final statistics"
 echo "e2e OK: $TOTAL messages over 3 sources captured and verified"

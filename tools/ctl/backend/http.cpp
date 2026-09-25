@@ -1,6 +1,6 @@
 #include "http.hpp"
 
-#include "ipcrelay/config.hpp"
+#include "ipcrelay/common/config.hpp"
 
 namespace ipcrelay::ctl {
 

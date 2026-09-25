@@ -9,7 +9,7 @@
 
 #include <zmq.h>
 
-#include "ipcrelay/zmq_util.hpp"
+#include "ipcrelay/common/zmq_util.hpp"
 
 int main(int argc, char** argv) {
     std::string endpoint;
