@@ -22,6 +22,8 @@ public:
     JsonWriter& value(double v);
     JsonWriter& value(bool v);
     JsonWriter& null();
+    // Appends an already-serialized JSON value verbatim (caller guarantees validity).
+    JsonWriter& raw(const std::string& json);
 
     const std::string& str() const { return out_; }
     void clear() { out_.clear(); need_comma_ = false; }

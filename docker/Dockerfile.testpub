@@ -1,0 +1,32 @@
+# ipc-relay-testpub runtime image: simulated ZeroMQ IPC publishers that feed
+# the bridge with deterministic, verifiable messages.
+#
+#   docker build -f docker/Dockerfile.build -t ipc-relay-build .
+#   docker build -f docker/Dockerfile.testpub -t ipc-relay-testpub .
+#
+# Build context: repository root. The default command binds three endpoints
+# in /run/ipc-relay (share it as a volume with the bridge) and publishes until
+# stopped.
+
+ARG BUILD_IMAGE=ipc-relay-build:latest
+ARG DEBIAN_RELEASE=bookworm
+FROM ${BUILD_IMAGE} AS build
+
+FROM debian:${DEBIAN_RELEASE}-slim
+
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libzmq5 \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN useradd --system --uid 10001 --user-group --no-create-home ipcrelay \
+ && install -d -o ipcrelay -g ipcrelay /run/ipc-relay
+
+COPY --from=build /opt/ipc-relay/bin/ipc-relay-testpub /usr/local/bin/
+
+USER ipcrelay
+ENTRYPOINT ["ipc-relay-testpub"]
+CMD ["-e", "ipc:///run/ipc-relay/nav.sock", \
+     "-e", "ipc:///run/ipc-relay/imu.sock", \
+     "-e", "ipc:///run/ipc-relay/log.sock", \
+     "--count", "0", "--rate", "500", "--size", "100", "--size-max", "3000"]

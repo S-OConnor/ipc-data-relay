@@ -58,5 +58,6 @@ JsonWriter& JsonWriter::value(double v) {
 }
 JsonWriter& JsonWriter::value(bool v) { separator(); out_ += v ? "true" : "false"; return *this; }
 JsonWriter& JsonWriter::null() { separator(); out_ += "null"; return *this; }
+JsonWriter& JsonWriter::raw(const std::string& json) { separator(); out_ += json; return *this; }
 
 }  // namespace ipcrelay

@@ -1,0 +1,152 @@
+# Full ipc-data-relay pipeline in containers:
+#
+#   testpub --(ZeroMQ IPC, shared volume)--> relay --(UDP multicast, relaynet)--> receiver --> capture volume
+#                                                                  ctl (web page :8083) <--stats / commands--^
+#
+# From the repository root:
+#   docker compose -f docker/compose.yaml up --build        # build everything and run
+#   open http://localhost:8083/                              # live counts + start/stop recording
+#   docker compose -f docker/compose.yaml exec receiver ipc-relay-ctl monitor
+#   docker compose -f docker/compose.yaml exec receiver ipc-relay-ctl send --connect record off
+#   docker compose -f docker/compose.yaml down               # stop (receiver flushes the capture)
+#   docker compose -f docker/compose.yaml run --rm inspect   # validate the capture
+#
+# Works with rootless podman too (podman compose ...).
+
+name: ipc-relay
+
+# Runtime images copy their binaries from ipc-relay-build:latest. The
+# "depends_on: build" entries on relay and receiver (testpub and ctl depend on
+# those) make compose build that image first.
+x-runtime-build: &runtime-build
+  context: ..
+  args:
+    BUILD_IMAGE: ipc-relay-build:latest
+
+services:
+  # 1. Build container: compiles every product. Built but never started by
+  #    "up" (scale 0); it provides the image the runtime images copy from.
+  build:
+    image: ipc-relay-build:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.build
+      args:
+        RUN_TESTS: ${RUN_TESTS:-false}
+    scale: 0
+    network_mode: none
+
+  # 2. Bridge / relay: ZeroMQ IPC SUB -> UDP multicast.
+  relay:
+    image: ipc-relay-relay:latest
+    build:
+      <<: *runtime-build
+      dockerfile: docker/Dockerfile.relay
+    depends_on:
+      build: {condition: service_started, required: false}
+    command:
+      - --config
+      - /etc/ipc-relay/bridge.conf
+      - --set
+      - multicast_group=${MCAST_GROUP:-239.192.10.1}
+      - --set
+      - multicast_port=${MCAST_PORT:-5100}
+    volumes:
+      - ipc-sockets:/run/ipc-relay
+      - ./config/bridge.conf:/etc/ipc-relay/bridge.conf:ro,z
+    networks: [relaynet]
+    restart: unless-stopped
+
+  # 3. Receiver: UDP multicast -> capture file. Statistics PUB on 5556
+  #    (also published to the host), command SUB bound on 5557 (network only).
+  receiver:
+    image: ipc-relay-receiver:latest
+    build:
+      <<: *runtime-build
+      dockerfile: docker/Dockerfile.receiver
+    depends_on:
+      build: {condition: service_started, required: false}
+    command:
+      - --config
+      - /etc/ipc-relay/receiver.conf
+      - --set
+      - multicast_group=${MCAST_GROUP:-239.192.10.1}
+      - --set
+      - multicast_port=${MCAST_PORT:-5100}
+    volumes:
+      - captures:/var/lib/ipc-relay
+      - ./config/receiver.conf:/etc/ipc-relay/receiver.conf:ro,z
+    ports:
+      - "${STATS_PORT:-5556}:5556"
+    networks: [relaynet]
+    # Give the receiver time to flush and fsync the capture on shutdown.
+    stop_grace_period: 10s
+    restart: unless-stopped
+
+  # 4. Web control: backend + browser frontend (ipc-relay-ctl serve). Pushes
+  #    the receiver's counts to the page every CTL_UPDATE_MS and forwards the
+  #    page's start/stop recording button to the receiver.
+  ctl:
+    image: ipc-relay-ctl:latest
+    build:
+      <<: *runtime-build
+      dockerfile: docker/Dockerfile.ctl
+    command:
+      - --stats-endpoint
+      - tcp://receiver:5556
+      - --command-endpoint
+      - tcp://receiver:5557
+      - --connect
+      - --update-ms
+      - ${CTL_UPDATE_MS:-1000}
+    ports:
+      - "${CTL_HTTP_PORT:-8083}:8083"
+    networks: [relaynet]
+    depends_on: [receiver]
+    restart: unless-stopped
+
+  # 5. Simulation: test publisher standing in for the real IPC applications.
+  testpub:
+    image: ipc-relay-testpub:latest
+    build:
+      <<: *runtime-build
+      dockerfile: docker/Dockerfile.testpub
+    command:
+      - -e
+      - ipc:///run/ipc-relay/nav.sock
+      - -e
+      - ipc:///run/ipc-relay/imu.sock
+      - -e
+      - ipc:///run/ipc-relay/log.sock
+      - --count
+      - ${TESTPUB_COUNT:-0}
+      - --rate
+      - ${TESTPUB_RATE:-500}
+      - --size
+      - ${TESTPUB_SIZE:-100}
+      - --size-max
+      - ${TESTPUB_SIZE_MAX:-3000}
+    volumes:
+      - ipc-sockets:/run/ipc-relay
+    network_mode: none
+    depends_on: [relay, receiver]
+    restart: "no"
+
+  # Capture validation with tools/capture_inspect.py from the build image:
+  #   docker compose -f docker/compose.yaml run --rm inspect [ARGS...]
+  inspect:
+    image: ipc-relay-build:latest
+    entrypoint: ["python3", "/src/tools/capture_inspect.py"]
+    command: ["--verify-testpub", "/captures/capture.cap"]
+    volumes:
+      - captures:/captures:ro
+    network_mode: none
+    profiles: [tools]
+
+networks:
+  relaynet:
+    driver: bridge
+
+volumes:
+  ipc-sockets:
+  captures:

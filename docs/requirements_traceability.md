@@ -6,7 +6,7 @@ to its implementation and verification.
 
 | ID | Implementation | Verification |
 |----|----------------|--------------|
-| BRG-001 | C++17 throughout (`src/`, `include/`) | build |
+| BRG-001 | C++17 throughout (`src/`, `include/`, `tools/`) | build |
 | BRG-002 | POSIX/Linux only; `docs/yocto.md`, `packaging/yocto/` | CI build on Debian |
 | BRG-003 | `ipc-relay-bridge`, `ipc-relay-receiver` | e2e tests |
 | BRG-004 | `CMakeLists.txt`, `cmake/FindZeroMQ.cmake` | CI `build` job |
@@ -30,8 +30,8 @@ to its implementation and verification.
 | BRG-071, BRG-113 | `wire::parse_datagram`, `Receiver::handle_datagram` | unit `wire_rejects_malformed`; `receiver_fault_injection` |
 | BRG-072, BRG-073 | `SequenceTracker` keyed by `source_id` | unit `sequence_*`; `receiver_fault_injection` |
 | BRG-074, BRG-075 | `ReceiverStats`, `stats_print` | `e2e_runtime_control`, fault test |
-| BRG-075A..BRG-075C | `Receiver::publish_stats` on `ZMQ_PUB` tcp with `ZMQ_DONTWAIT`, JSON in `receiver_stats.cpp` | `e2e_runtime_control` (`ipc-relay-ctl monitor`) |
-| BRG-076..BRG-079 | `Receiver::handle_command`, `set_recording`; `ZMQ_SUB` tcp command channel | `e2e_runtime_control` |
+| BRG-075A..BRG-075C | `Receiver::publish_stats` on `ZMQ_PUB` tcp with `ZMQ_DONTWAIT`, JSON in `receiver_stats.cpp` | `e2e_runtime_control` (`ipc-relay-ctl monitor`), `ctl_web_backend` (`ipc-relay-ctl serve`) |
+| BRG-076..BRG-079 | `Receiver::handle_command`, `set_recording`; `ZMQ_SUB` tcp command channel | `e2e_runtime_control`, `ctl_web_backend` (record on/off from the web protocol) |
 | BRG-080..BRG-089 | `capture_format.hpp/.cpp`, `capture_writer.cpp`; `docs/capture_format.md` | unit `capture_*`; e2e; fault test |
 | BRG-090, BRG-091 | `docs/capture_format.md`; `tools/capture_inspect.py` (stdlib only) | `capture_inspect_selftest`; e2e |
 | BRG-092 | `Receiver::run` flush + fsync + close on shutdown | e2e (records count after SIGTERM) |

@@ -1,0 +1,36 @@
+# ipc-relay-receiver + ipc-relay-ctl runtime image: UDP multicast -> binary
+# capture, with the control tool alongside for runtime commands and stats.
+#
+#   docker build -f docker/Dockerfile.build -t ipc-relay-build .
+#   docker build -f docker/Dockerfile.receiver -t ipc-relay-receiver .
+#
+# Build context: repository root. The capture file is written to
+# /var/lib/ipc-relay (mount a volume there). The default configuration binds
+# the command endpoint on port 5557 so the web control container
+# (Dockerfile.ctl) can connect to it; from inside this container:
+#
+#   docker exec <container> ipc-relay-ctl send --connect record off
+#   docker exec -it <container> ipc-relay-ctl monitor
+
+ARG BUILD_IMAGE=ipc-relay-build:latest
+ARG DEBIAN_RELEASE=bookworm
+FROM ${BUILD_IMAGE} AS build
+
+FROM debian:${DEBIAN_RELEASE}-slim
+
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libzmq5 \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN useradd --system --uid 10001 --user-group --no-create-home ipcrelay \
+ && install -d -o ipcrelay -g ipcrelay /var/lib/ipc-relay
+
+COPY --from=build /opt/ipc-relay/bin/ipc-relay-receiver /opt/ipc-relay/bin/ipc-relay-ctl /usr/local/bin/
+COPY docker/config/receiver.conf /etc/ipc-relay/receiver.conf
+
+USER ipcrelay
+# Statistics PUB and command SUB (ZeroMQ TCP).
+EXPOSE 5556 5557
+ENTRYPOINT ["ipc-relay-receiver"]
+CMD ["--config", "/etc/ipc-relay/receiver.conf"]

@@ -1,0 +1,12 @@
+# Keep host build trees and VCS metadata out of the image build context; a
+# stale CMakeCache.txt from the host would break the in-container configure.
+.git/
+build/
+build-*/
+dist/
+.cache/
+.gitlab-ci-local/
+.vscode/
+compile_commands.json
+*.cap
+*.tar.gz

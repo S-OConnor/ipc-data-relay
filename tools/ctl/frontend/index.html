@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IPC Relay Control</title>
+<link rel="stylesheet" href="style.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<header class="bar">
+  <div class="bar-inner">
+    <div class="identity">
+      <h1>IPC Relay Control</h1>
+      <div class="pills">
+        <span id="link-pill" class="pill" data-state="bad">Backend: connecting</span>
+        <span id="receiver-pill" class="pill" data-state="idle">Receiver: waiting</span>
+        <span id="recording-pill" class="pill" data-state="idle">Recording: unknown</span>
+      </div>
+    </div>
+    <button id="record-button" class="record" type="button" disabled data-action="start">
+      <span class="record-icon" aria-hidden="true"></span>
+      <span id="record-label">Start recording</span>
+    </button>
+  </div>
+</header>
+
+<main>
+  <div id="alert" class="alert" role="alert" hidden></div>
+
+  <section class="meta" aria-label="Status">
+    <div><span class="k">Capture file</span><span id="capture-file" class="v mono">-</span></div>
+    <div><span class="k">Receiver uptime</span><span id="uptime" class="v">-</span></div>
+    <div><span class="k">Last statistics</span><span id="stats-age" class="v">-</span></div>
+    <div><span class="k">Update rate</span><span id="update-rate" class="v">-</span></div>
+  </section>
+
+  <section aria-labelledby="counters-title">
+    <h2 id="counters-title">Receiver counts</h2>
+    <ul id="counters" class="counters"></ul>
+  </section>
+
+  <section aria-labelledby="sources-title">
+    <h2 id="sources-title">Sources <span id="source-count" class="count"></span></h2>
+    <p id="no-sources" class="empty">No sources seen yet.</p>
+    <ul id="sources" class="sources"></ul>
+  </section>
+</main>
+</body>
+</html>

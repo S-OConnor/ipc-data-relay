@@ -10,7 +10,10 @@
   ZeroMQ PUB (app C) --ipc--+   |  1 x UDP socket  |  (1 stream)       |  ZMQ TCP PUB stats |--> monitors
                                 +------------------+                    |  ZMQ TCP SUB cmds  |<-- ipc-relay-ctl
   (other subscribers keep       ^ zmq_poll over all sources             +--------------------+
-   receiving as before)
+   receiving as before)                                                   ^ stats   | cmds
+                                                                    +--------------------+  HTTP + WebSocket
+                                                                    | ipc-relay-ctl serve|<=================> browser
+                                                                    +--------------------+  (JSON)
 ```
 
 The system has two applications (BRG-003) plus two tools:
@@ -20,7 +23,7 @@ The system has two applications (BRG-003) plus two tools:
 | `ipc-relay-bridge`   | Subscribes passively to N ZeroMQ IPC PUB endpoints and republishes each message over one UDP multicast stream with a compact binary header. |
 | `ipc-relay-receiver` | Joins the multicast group, validates and reassembles datagrams, detects loss, records messages into one binary capture file, publishes statistics and accepts runtime commands over ZeroMQ TCP. |
 | `ipc-relay-testpub`  | Test publisher that generates verifiable messages on one or more IPC endpoints. |
-| `ipc-relay-ctl`      | Sends commands to the receiver and monitors its statistics stream. |
+| `ipc-relay-ctl`      | Web control page for the receiver: a backend that relays statistics and commands between the receiver's ZeroMQ channels and browsers over a WebSocket. Also has one-shot `send`/`monitor` modes. |
 | `capture_inspect.py` | Standalone capture file validator. |
 
 ## Bridge
@@ -158,6 +161,59 @@ discarded because the socket receive buffer was full (receive-side
 overrun). `dropped_messages` per source is the number of sequence numbers
 never seen. The same JSON is logged as `final stats:` on shutdown.
 
+## Control tool web interface
+
+`ipc-relay-ctl serve` is a single-threaded backend (one `zmq_poll()` loop
+over the ZeroMQ sockets, the HTTP listening socket and every browser
+connection):
+
+* A `ZMQ_SUB` connects to the receiver's `stats_endpoint`. The last valid
+  statistics JSON object is kept. Messages that are not a JSON object are
+  ignored.
+* A `ZMQ_PUB` stays open for the life of the process. It binds
+  `--command-endpoint` by default, or connects with `--connect` when the
+  receiver binds. A persistent socket avoids the PUB/SUB slow-joiner
+  delay of one-shot `send`.
+* A small HTTP/1.1 server serves the frontend (`/`, `/app.js`,
+  `/style.css`, compiled in from `tools/ctl/frontend/`), `GET /api/stats`
+  and the WebSocket endpoint `/ws` (RFC 6455, text frames only). Upgrades
+  whose `Origin` does not match `Host` are rejected, so another web page
+  in the operator's browser cannot drive the receiver. There is no
+  authentication.
+* Every `--update-ms` the latest snapshot goes to every WebSocket client.
+  A client with more than 1 MiB queued is skipped until it catches up.
+  After a command, the next statistics message is pushed straight away so
+  the page shows the new recording state without waiting a full interval.
+
+Messages on `/ws` are JSON text frames.
+
+Backend to browser:
+
+```json
+{"type": "hello", "protocol_version": 1, "tool_version": "1.0.0",
+ "update_interval_ms": 1000, "stale_after_ms": 3000,
+ "stats_endpoint": "tcp://127.0.0.1:5556", "command_endpoint": "tcp://127.0.0.1:5557"}
+
+{"type": "stats", "update": 42, "server_time_ns": 1789746853514171829,
+ "receiver_online": true, "stats_age_ms": 180, "stats_received": 97,
+ "stats": { ...receiver statistics message, see above, or null before the first one... }}
+
+{"type": "command_result", "id": 1, "command": "record on", "ok": true, "error": ""}
+```
+
+Browser to backend:
+
+```json
+{"type": "record", "enabled": true, "id": 1}
+```
+
+`hello` and one `stats` message are sent on connect, then `stats` at the
+update rate. `receiver_online` is false when no statistics arrived for
+`stale_after_ms`. `command_result.ok` means the backend published the
+command. PUB/SUB has no acknowledgement, so the page treats the recording
+state in the following `stats` messages as confirmation. `id` is echoed
+back.
+
 ## Shutdown
 
 Both applications install `SIGINT`/`SIGTERM` handlers (without
@@ -169,14 +225,18 @@ the capture file (BRG-092, BRG-110).
 
 ```
 include/ipcrelay/     public headers of the common library
-src/common/           wire protocol, capture format, config parser, UDP, reassembly, logging
-src/bridge/           ipc-relay-bridge
-src/receiver/         ipc-relay-receiver
-src/testpub/          ipc-relay-testpub
-src/ctl/              ipc-relay-ctl
+src/common/           wire protocol, config parser, UDP, ZeroMQ helpers, logging
+src/bridge/           ipc-relay-bridge (IPC subscribers -> UDP multicast sender)
+tools/receiver/       ipc-relay-receiver
+tools/receiver/lib/   capture format, reassembly, sequence tracking, JSON (receiver-only)
+tools/testpub/        ipc-relay-testpub
+tools/ctl/            ipc-relay-ctl (CLI modes in main.cpp)
+tools/ctl/backend/    web backend: HTTP, WebSocket, JSON parser, control server
+tools/ctl/frontend/   browser frontend (embedded into the binary at build time)
 tools/                capture_inspect.py
 tests/unit/           unit tests (self-contained framework)
 tests/integration/    end-to-end shell/Python tests (run by ctest)
+docker/               build/runtime images and compose file for the full pipeline
 examples/             example configurations
 packaging/            systemd units and Yocto recipe
 docs/                 this documentation

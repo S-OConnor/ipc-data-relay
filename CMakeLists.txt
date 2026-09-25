@@ -22,6 +22,10 @@ find_package(Threads REQUIRED)
 
 include(GNUInstallDirs)
 
+# Keep every executable at the top of the build tree (build/ipc-relay-*) even
+# though the tools are defined in subdirectories.
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
 add_library(ipcrelay_warnings INTERFACE)
 target_compile_options(ipcrelay_warnings INTERFACE
   -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion
@@ -31,19 +35,13 @@ if(IPCRELAY_WARNINGS_AS_ERRORS)
 endif()
 
 # ---------------------------------------------------------------------------
-# Common library: wire protocol, capture format, config, UDP, logging
+# Common library: wire protocol, config, UDP, ZeroMQ helpers, logging
 # ---------------------------------------------------------------------------
 add_library(ipcrelay_common STATIC
   src/common/byteorder.cpp
-  src/common/capture_format.cpp
-  src/common/capture_reader.cpp
-  src/common/capture_writer.cpp
   src/common/config.cpp
-  src/common/json_writer.cpp
   src/common/log.cpp
   src/common/net_util.cpp
-  src/common/reassembler.cpp
-  src/common/sequence_tracker.cpp
   src/common/signal_handler.cpp
   src/common/time_util.cpp
   src/common/udp_multicast.cpp
@@ -65,17 +63,7 @@ add_executable(ipc-relay-bridge
   src/bridge/bridge_config.cpp)
 target_link_libraries(ipc-relay-bridge PRIVATE ipcrelay_common ipcrelay_warnings)
 
-# ---------------------------------------------------------------------------
-# Receiver: UDP multicast -> binary capture (+ ZeroMQ TCP stats/command)
-# ---------------------------------------------------------------------------
-add_executable(ipc-relay-receiver
-  src/receiver/main.cpp
-  src/receiver/receiver.cpp
-  src/receiver/receiver_config.cpp
-  src/receiver/receiver_stats.cpp)
-target_link_libraries(ipc-relay-receiver PRIVATE ipcrelay_common ipcrelay_warnings)
-
-install(TARGETS ipc-relay-bridge ipc-relay-receiver
+install(TARGETS ipc-relay-bridge
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(DIRECTORY examples/ DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/ipc-data-relay
   FILES_MATCHING PATTERN "*.conf")
@@ -85,17 +73,16 @@ install(FILES tools/capture_inspect.py
   RENAME ipc-relay-capture-inspect)
 
 # ---------------------------------------------------------------------------
+# Receiver: UDP multicast -> binary capture (+ ZeroMQ TCP stats/command)
+# ---------------------------------------------------------------------------
+add_subdirectory(tools/receiver)
+
+# ---------------------------------------------------------------------------
 # Tools: test publisher and runtime control utility
 # ---------------------------------------------------------------------------
 if(IPCRELAY_BUILD_TOOLS)
-  add_executable(ipc-relay-testpub src/testpub/main.cpp)
-  target_link_libraries(ipc-relay-testpub PRIVATE ipcrelay_common ipcrelay_warnings)
-
-  add_executable(ipc-relay-ctl src/ctl/main.cpp)
-  target_link_libraries(ipc-relay-ctl PRIVATE ipcrelay_common ipcrelay_warnings)
-
-  install(TARGETS ipc-relay-testpub ipc-relay-ctl
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+  add_subdirectory(tools/testpub)
+  add_subdirectory(tools/ctl)
 endif()
 
 # ---------------------------------------------------------------------------

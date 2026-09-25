@@ -84,9 +84,11 @@ static-analysis:
   script:
     - cppcheck --std=c++17 --language=c++ --enable=warning,performance,portability
         --error-exitcode=1 --inline-suppr --quiet
-        --suppress=missingIncludeSystem -I include -I src src include tests/unit tests/helpers
+        --suppress=missingIncludeSystem -I include -I tools/receiver/include -I src -I tools -I tools/ctl/backend
+        src include tools tests/unit tests/helpers
     - shellcheck -x tests/integration/*.sh
     - python3 -m py_compile tools/capture_inspect.py tests/integration/test_receiver_faults.py
+        tests/integration/test_ctl_web.py
 
 package:
   stage: package

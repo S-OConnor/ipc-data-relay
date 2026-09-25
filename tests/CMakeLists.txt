@@ -9,10 +9,12 @@ add_executable(unit_tests
   unit/test_config.cpp
   unit/test_json_writer.cpp
   unit/test_zmq_pubsub.cpp
+  unit/test_ctl_protocol.cpp
   ${CMAKE_SOURCE_DIR}/src/bridge/bridge_config.cpp
-  ${CMAKE_SOURCE_DIR}/src/receiver/receiver_config.cpp)
-target_include_directories(unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_link_libraries(unit_tests PRIVATE ipcrelay_common ipcrelay_warnings)
+  ${CMAKE_SOURCE_DIR}/tools/receiver/receiver_config.cpp)
+target_include_directories(unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tools)
+target_link_libraries(unit_tests PRIVATE ipcrelay_receiver_core ipcrelay_ctl_core
+  ipcrelay_common ipcrelay_warnings)
 add_test(NAME unit_tests COMMAND unit_tests)
 
 # Helper: independent ZeroMQ subscriber that counts messages (used to show the
@@ -52,6 +54,13 @@ if(Python3_Interpreter_FOUND)
   add_test(NAME receiver_fault_injection
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/integration/test_receiver_faults.py)
   set_tests_properties(receiver_fault_injection PROPERTIES
+    ENVIRONMENT "${IPCRELAY_TEST_ENV}" TIMEOUT 120)
+
+  # Control tool web backend: HTTP frontend, WebSocket stats push at the
+  # configured rate and start/stop recording from the browser protocol.
+  add_test(NAME ctl_web_backend
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/integration/test_ctl_web.py)
+  set_tests_properties(ctl_web_backend PROPERTIES
     ENVIRONMENT "${IPCRELAY_TEST_ENV}" TIMEOUT 120)
 
   # Capture inspector self-test against a synthetic capture file.
